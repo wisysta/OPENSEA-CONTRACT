@@ -8,7 +8,7 @@ contract ProxyRegistry is Ownable {
     mapping(address => bool) public contracts;
     mapping(address => address) public proxies;
 
-    //실제로는 2주간의 기간을 둠
+    // 오픈씨가 실행, 실제로는 2주간의 기간을 둠
     function grantAuthentication(address addr) external onlyOwner {
         require(!contracts[addr], "Already registered");
         contracts[addr] = true;
@@ -19,6 +19,7 @@ contract ProxyRegistry is Ownable {
         delete contracts[addr];
     }
 
+    // 유저가 실행
     function registerProxy() external returns (AuthenticatedProxy) {
         require(proxies[msg.sender] == address(0), "Already registered");
         AuthenticatedProxy proxy = new AuthenticatedProxy(msg.sender);
