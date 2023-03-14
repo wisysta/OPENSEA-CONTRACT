@@ -1,24 +1,28 @@
 import { ethers } from "hardhat";
 
 async function main() {
-  const currentTimestampInSeconds = Math.round(Date.now() / 1000);
-  const unlockTime = currentTimestampInSeconds + 60;
+    const TokenIdentifiers = await ethers.getContractFactory(
+        "TokenIdentifiers"
+    );
+    const tokenIdentifiers = await TokenIdentifiers.deploy();
 
-  const lockedAmount = ethers.utils.parseEther("0.001");
+    tokenIdentifiers.deployed();
 
-  const Lock = await ethers.getContractFactory("Lock");
-  const lock = await Lock.deploy(unlockTime, { value: lockedAmount });
+    const AssetShared = await ethers.getContractFactory("AssetShared", {
+        libraries: {
+            TokenIdentifiers: tokenIdentifiers.address,
+        },
+    });
 
-  await lock.deployed();
+    const contract = await AssetShared.deploy("Lazy Minting Contract", "LAZY");
+    await contract.deployed();
 
-  console.log(
-    `Lock with ${ethers.utils.formatEther(lockedAmount)}ETH and unlock timestamp ${unlockTime} deployed to ${lock.address}`
-  );
+    console.log("AssetShared : ", contract.address);
 }
 
 // We recommend this pattern to be able to use async/await everywhere
 // and properly handle errors.
 main().catch((error) => {
-  console.error(error);
-  process.exitCode = 1;
+    console.error(error);
+    process.exitCode = 1;
 });
