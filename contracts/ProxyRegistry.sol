@@ -6,6 +6,8 @@ import "./AuthenticatedProxy.sol";
 
 contract ProxyRegistry is Ownable {
     mapping(address => bool) public contracts;
+
+    // userAddress => proxyAddress
     mapping(address => address) public proxies;
 
     // 오픈씨가 실행, 실제로는 2주간의 기간을 둠
