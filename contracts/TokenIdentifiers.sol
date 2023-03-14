@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.9;
 
-library TokenIndentifiers {
+library TokenIdentifiers {
     uint8 constant ADDRESS_BITS = 20 * 8;
     uint8 constant INDEX_BITS = 12 * 8;
 
