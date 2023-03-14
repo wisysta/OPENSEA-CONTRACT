@@ -27,6 +27,7 @@ contract AuthenticatedProxy {
         address dest,
         bytes calldata calldata_
     ) external returns (bool result) {
+        // 1.msg.sender가 유저인 경우 2.프록시 레지스트리에 등록된(오픈씨가 등록한) 컨트랙트인 경우
         require(
             msg.sender == userAddress ||
                 ((!revoked) &&
