@@ -1,11 +1,28 @@
 import { ethers } from "hardhat";
 
 async function main() {
-    const Exchange = await ethers.getContractFactory("NFTExchange");
-    const contract = await Exchange.deploy();
-    contract.deployed();
+    const ProxyRegistry = await ethers.getContractFactory("ProxyRegistry");
+    const proxyRegistry = await ProxyRegistry.deploy({ nonce: 13 });
 
-    console.log("AssetShared : ", contract.address);
+    await proxyRegistry.deployed();
+
+    console.log("Proxy Registry Address :", proxyRegistry.address);
+
+    const Exchange = await ethers.getContractFactory("NFTExchange");
+    const exchange = await Exchange.deploy(
+        "0x90142c0d7F10a035b47A7a930fEefAcBCaEE3985",
+        proxyRegistry.address,
+        { nonce: 14 }
+    );
+
+    await exchange.deployed();
+
+    console.log("NFT Exchange :", exchange.address);
+
+    await proxyRegistry.functions.grantAuthentication(exchange.address, {
+        nonce: 15,
+    });
+    console.log("Allow exchange to use proxy contracts successfully!");
 }
 
 // We recommend this pattern to be able to use async/await everywhere

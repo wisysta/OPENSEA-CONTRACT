@@ -17,6 +17,19 @@ contract NFTExchange is Ownable, ReentrancyGuard {
     bytes32 private constant ORDER_TYPEHASH =
         0x7d2606b3242cc6e6d31de9a58f343eed0d0647bd06fe84c19441d47d44316877;
 
+    bytes32 private DOMAIN_SEPERATOR =
+        keccak256(
+            abi.encode(
+                keccak256(
+                    "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"
+                ),
+                keccak256("Wyvern Clone Coding Exchange"),
+                keccak256("1"),
+                5,
+                address(this)
+            )
+        );
+
     address public feeAddress;
     mapping(bytes32 => bool) public canceledOrFinalized;
     IProxyRegistry proxyRegistry;
@@ -70,12 +83,14 @@ contract NFTExchange is Ownable, ReentrancyGuard {
         }
     }
 
+    // 1.구매자, 2.판매자, 3.제3자가 실행가능한 함수
+
     function atomicMatch(
         Order memory buy,
         Sig memory buySig,
         Order memory sell,
         Sig memory sellSig
-    ) external nonReentrant {
+    ) external payable nonReentrant {
         bytes32 buyHash = validateOrder(buy, buySig);
         bytes32 sellHash = validateOrder(sell, sellSig);
 
@@ -218,6 +233,8 @@ contract NFTExchange is Ownable, ReentrancyGuard {
     ) internal view returns (bytes32 orderHash) {
         if (msg.sender != order.maker) {
             orderHash = validateOrderSig(order, sig);
+        } else {
+            orderHash = hashOrder(order);
         }
 
         require(order.exchange == address(this));
@@ -230,9 +247,13 @@ contract NFTExchange is Ownable, ReentrancyGuard {
     function validateOrderSig(
         Order memory order,
         Sig memory sig
-    ) internal pure returns (bytes32 orderHash) {
-        orderHash = hashOrder(order);
-        require(ecrecover(orderHash, sig.v, sig.r, sig.s) == order.maker);
+    ) internal view returns (bytes32 orderHash) {
+        bytes32 sigMessage;
+        (orderHash, sigMessage) = orderSigMessage(order);
+
+        // 서명 검증할 때 주문에 대한 해시값(orderHash)이 아닌 EIP-712 표준에 따른
+        // 서명 메시지(sigMessage)로 검증합니다.
+        require(ecrecover(sigMessage, sig.v, sig.r, sig.s) == order.maker);
     }
 
     function hashOrder(Order memory order) public pure returns (bytes32 hash) {
@@ -336,5 +357,14 @@ contract NFTExchange is Ownable, ReentrancyGuard {
                 0
             )
         }
+    }
+
+    function orderSigMessage(
+        Order memory order
+    ) internal view returns (bytes32 orderHash, bytes32 sigMessage) {
+        orderHash = hashOrder(order);
+        sigMessage = keccak256(
+            abi.encodePacked("\x19\x01", DOMAIN_SEPERATOR, orderHash)
+        );
     }
 }
