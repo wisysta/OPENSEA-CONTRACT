@@ -2,7 +2,7 @@ import { ethers } from "hardhat";
 
 async function main() {
     const ProxyRegistry = await ethers.getContractFactory("ProxyRegistry");
-    const proxyRegistry = await ProxyRegistry.deploy({ nonce: 13 });
+    const proxyRegistry = await ProxyRegistry.deploy({ nonce: 19 });
 
     await proxyRegistry.deployed();
 
@@ -12,7 +12,7 @@ async function main() {
     const exchange = await Exchange.deploy(
         "0x90142c0d7F10a035b47A7a930fEefAcBCaEE3985",
         proxyRegistry.address,
-        { nonce: 14 }
+        { nonce: 20 }
     );
 
     await exchange.deployed();
@@ -20,7 +20,7 @@ async function main() {
     console.log("NFT Exchange :", exchange.address);
 
     await proxyRegistry.functions.grantAuthentication(exchange.address, {
-        nonce: 15,
+        nonce: 21,
     });
     console.log("Allow exchange to use proxy contracts successfully!");
 }

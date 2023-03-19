@@ -130,7 +130,7 @@ contract NFTExchange is Ownable, ReentrancyGuard {
         canceledOrFinalized[buyHash] = true;
         canceledOrFinalized[sellHash] = true;
 
-        uint256 price = excuteFundsTransfer(buy, sell);
+        uint256 price = executeFundsTransfer(buy, sell);
         IProxy proxy = IProxy(proxyRegistry.proxies(sell.maker));
 
         require(proxy.proxy(sell.target, sell.calldata_));
@@ -156,12 +156,15 @@ contract NFTExchange is Ownable, ReentrancyGuard {
         return price / 40;
     }
 
-    function excuteFundsTransfer(
+    function executeFundsTransfer(
         Order memory buy,
         Order memory sell
     ) internal returns (uint256 price) {
         if (sell.paymentToken != address(0)) {
-            require(msg.value == 0);
+            require(
+                msg.value == 0,
+                "cannot send ether when payment token is not ether"
+            );
         }
 
         price = calculateMatchPrice(buy, sell);
@@ -172,7 +175,7 @@ contract NFTExchange is Ownable, ReentrancyGuard {
         }
 
         if (sell.paymentToken != address(0)) {
-            // ERC-20 토큰의 경우
+            // ERC-20 토큰을 전송해야 하는 경우
             IERC20(sell.paymentToken).transferFrom(
                 buy.maker,
                 sell.maker,
@@ -180,18 +183,18 @@ contract NFTExchange is Ownable, ReentrancyGuard {
             );
             IERC20(sell.paymentToken).transferFrom(buy.maker, feeAddress, fee);
         } else {
-            // 이더리움인 경우
-            require(msg.sender == buy.maker);
+            // 이더를 전송해야 하는 경우
+            require(msg.sender == buy.maker, "not a buyer");
 
             (bool result, ) = sell.maker.call{value: price}("");
-            require(result);
+            require(result, "failed to send to seller");
             (result, ) = feeAddress.call{value: fee}("");
-            require(result);
+            require(result, "failed to send to fee");
 
             uint256 remain = msg.value - price - fee;
             if (remain > 0) {
                 (result, ) = msg.sender.call{value: remain}("");
-                require(result);
+                require(result, "remain sent failure");
             }
         }
     }
@@ -204,21 +207,25 @@ contract NFTExchange is Ownable, ReentrancyGuard {
         if (
             sell.saleKind == SaleKind.AUCTION && sell.basePrice <= sell.endPrice
         ) {
-            require(msg.sender == sell.maker);
+            require(
+                msg.sender == sell.maker,
+                "only seller can send for sell to highest bidder"
+            );
         }
 
         return
             (buy.taker == address(0) || buy.taker == sell.maker) &&
-            (sell.taker == address(0) || sell.taker == buy.taker) &&
+            (sell.taker == address(0) || sell.taker == buy.maker) &&
             (buy.saleSide == SaleSide.BUY && sell.saleSide == SaleSide.SELL) &&
+            (buy.saleKind == sell.saleKind) &&
             (buy.target == sell.target) &&
             (buy.paymentToken == sell.paymentToken) &&
             (buy.basePrice == sell.basePrice) &&
+            // basePrice > endPrice 의 경우 sell with declining price 방식으로 endPrice 가 동일해야 함.
             (sell.saleKind == SaleKind.FIXED_PRICE ||
                 sell.basePrice <= sell.endPrice ||
                 buy.endPrice == sell.endPrice) &&
-            canSettleOrder(buy) &&
-            canSettleOrder(sell);
+            (canSettleOrder(buy) && canSettleOrder(sell));
     }
 
     function canSettleOrder(Order memory order) internal view returns (bool) {
@@ -230,17 +237,20 @@ contract NFTExchange is Ownable, ReentrancyGuard {
     function validateOrder(
         Order memory order,
         Sig memory sig
-    ) internal view returns (bytes32 orderHash) {
+    ) public view returns (bytes32 orderHash) {
         if (msg.sender != order.maker) {
             orderHash = validateOrderSig(order, sig);
         } else {
             orderHash = hashOrder(order);
         }
 
-        require(order.exchange == address(this));
+        require(order.exchange == address(this), "wrong exchange");
 
         if (order.saleKind == SaleKind.AUCTION) {
-            require(order.expirationTime < order.listingTime);
+            require(
+                order.expirationTime > order.listingTime,
+                "wrong timestamp"
+            );
         }
     }
 
